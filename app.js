@@ -2,12 +2,19 @@ const { useState, useCallback, useMemo, useEffect } = React;
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const S = {
-  bg:"#07090F", surface:"#0D1220", card:"#111827", border:"#1C2A3E",
-  text:"#DDE6F2", mid:"#7A94B0", dim:"#3A5068", accent:"#C8102E",
+  bg:"#03060D", surface:"rgba(17,24,39,0.72)", card:"rgba(13,20,34,0.76)", border:"#355070",
+  text:"#F7FBFF", mid:"#C6D7EA", dim:"#8FA7C2", accent:"#FF4D6D",
   mono:'"IBM Plex Mono",monospace', sans:'"DM Sans",sans-serif', disp:'"Syne",sans-serif',
 };
 const sc = i => i<25?"#2DBF82":i<50?"#F5B731":i<70?"#E07530":"#C8102E";
 const sl = i => i<25?"Low":i<50?"Moderate":i<70?"High":"Extreme";
+const COMPARE_COLORS=["#5AD1FF","#FF7AA2","#88F26E","#FFD166","#C5A3FF","#6EE7D8"];
+const compareColors=(a1,a2)=>{
+  const i1=Math.abs((a1||"A").charCodeAt(0)+(a1||"A").charCodeAt(1))%COMPARE_COLORS.length;
+  let i2=Math.abs((a2||"B").charCodeAt(0)+(a2||"B").charCodeAt(1)+3)%COMPARE_COLORS.length;
+  if(i1===i2) i2=(i2+2)%COMPARE_COLORS.length;
+  return [COMPARE_COLORS[i1],COMPARE_COLORS[i2]];
+};
 
 // ─── TEAM DATA ────────────────────────────────────────────────────────────────
 const TEAMS = {
@@ -207,7 +214,7 @@ function SBar({v,w}){
 }
 function MRow({label,value,color}){
   return <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid "+S.border}}>
-    <span style={{fontFamily:S.mono,fontSize:10,color:S.dim,textTransform:"uppercase",letterSpacing:"0.1em"}}>{label}</span>
+    <span style={{fontFamily:S.mono,fontSize:10,color:S.mid,textTransform:"uppercase",letterSpacing:"0.1em"}}>{label}</span>
     <span style={{fontFamily:S.mono,fontSize:12,fontWeight:600,color:color||S.text}}>{value}</span>
   </div>;
 }
@@ -219,7 +226,7 @@ function TeamCard({abbr,selected,onClick}){
     <img src={tLogo(t.logo)} alt={abbr} width={32} height={32} style={{objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
     <div>
       <div style={{fontFamily:S.sans,fontSize:11,fontWeight:700,color:S.text}}>{abbr}</div>
-      <div style={{fontFamily:S.sans,fontSize:9,color:S.mid}}>{t.city}</div>
+      <div style={{fontFamily:S.sans,fontSize:9,color:S.text}}>{t.city}</div>
     </div>
   </div>;
 }
@@ -232,15 +239,15 @@ function GameRow({game,selected,onCheck,onClick}){
       style={{width:13,height:13,borderRadius:3,border:"1px solid "+(selected?c:S.dim),background:selected?c:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
       {selected&&<span style={{color:"#fff",fontSize:8,lineHeight:1}}>✓</span>}
     </div>
-    <span style={{fontFamily:S.mono,fontSize:10,color:S.mid}}>{fmtD(game.date)}</span>
+    <span style={{fontFamily:S.mono,fontSize:10,color:S.text}}>{fmtD(game.date)}</span>
     <div style={{display:"flex",alignItems:"center",gap:6}}>
-      <span style={{fontFamily:S.mono,fontSize:9,color:S.dim}}>{game.isHome?"vs":"@"}</span>
+      <span style={{fontFamily:S.mono,fontSize:9,color:S.mid}}>{game.isHome?"vs":"@"}</span>
       <img src={tLogo(opp?opp.logo:game.opp.toLowerCase())} alt={game.opp} width={18} height={18} style={{objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
       <span style={{fontFamily:S.sans,fontSize:11,fontWeight:600,color:S.text}}>{game.opp}</span>
-      {game.result?<span style={{fontFamily:S.mono,fontSize:10,fontWeight:700,marginLeft:4,color:game.result==="W"?"#2DBF82":"#E03A3E"}}>{game.result} {game.tScore}–{game.oScore}</span>:<span style={{fontFamily:S.mono,fontSize:9,marginLeft:4,color:S.dim}}>Upcoming</span>}
+      {game.result?<span style={{fontFamily:S.mono,fontSize:10,fontWeight:700,marginLeft:4,color:game.result==="W"?"#2DBF82":"#E03A3E"}}>{game.result} {game.tScore}–{game.oScore}</span>:<span style={{fontFamily:S.mono,fontSize:9,marginLeft:4,color:S.mid}}>Upcoming</span>}
     </div>
     <span style={{fontFamily:S.mono,fontSize:11,textAlign:"right",color:game.rest===0?"#E07530":game.rest===1?"#F5B731":S.mid}}>{game.rest===null?"—":game.rest+"d"}</span>
-    <span style={{fontFamily:S.mono,fontSize:10,color:S.mid,textAlign:"right"}}>{game.dist>0?game.dist.toLocaleString():"—"}</span>
+    <span style={{fontFamily:S.mono,fontSize:10,color:S.text,textAlign:"right"}}>{game.dist>0?game.dist.toLocaleString():"—"}</span>
     <span style={{fontFamily:S.mono,fontSize:10,textAlign:"right",color:Math.abs(game.tzShift)>=2?"#F5B731":S.mid}}>{game.tzShift===0?"—":(game.tzShift>0?"+":"")+game.tzShift+"h"}</span>
     <div style={{display:"flex",gap:3,alignItems:"center"}}>
       {game.isB2B2&&<span style={{width:7,height:7,borderRadius:"50%",background:"#E07530",display:"block"}} title="B2B"/>}
@@ -263,9 +270,9 @@ function GameDetail({game,abbr,onClose}){
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
       <div>
         <div style={{fontFamily:S.disp,fontSize:16,fontWeight:800,color:S.text}}>{fmtDL(game.date)}</div>
-        <div style={{fontFamily:S.sans,fontSize:13,color:S.mid,marginTop:4}}>
-          {t&&t.name} <span style={{color:S.dim}}>{game.isHome?"vs":"at"}</span> {opp?opp.name:game.opp}
-          {game.result?<span style={{marginLeft:10,fontWeight:700,color:game.result==="W"?"#2DBF82":"#E03A3E"}}>{game.result} {game.tScore}–{game.oScore}</span>:<span style={{marginLeft:10,color:S.dim,fontFamily:S.mono,fontSize:10}}>Upcoming</span>}
+        <div style={{fontFamily:S.sans,fontSize:13,color:S.text,marginTop:4}}>
+          {t&&t.name} <span style={{color:S.mid}}>{game.isHome?"vs":"at"}</span> {opp?opp.name:game.opp}
+          {game.result?<span style={{marginLeft:10,fontWeight:700,color:game.result==="W"?"#2DBF82":"#E03A3E"}}>{game.result} {game.tScore}–{game.oScore}</span>:<span style={{marginLeft:10,color:S.mid,fontFamily:S.mono,fontSize:10}}>Upcoming</span>}
         </div>
       </div>
       <div style={{textAlign:"right"}}>
@@ -280,7 +287,7 @@ function GameDetail({game,abbr,onClose}){
       <Pill label="4-in-5" on={game.is4in5} color="#C8102E"/><Pill label="5-in-7" on={game.is5in7} color="#8B00D0"/>
     </div>
     <div style={{marginBottom:18}}>
-      <div style={{fontFamily:S.mono,fontSize:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:6}}>Travel Metrics</div>
+      <div style={{fontFamily:S.mono,fontSize:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:6}}>Travel Metrics</div>
       <MRow label="Location" value={game.isHome?"Home":"Away"} color={game.isHome?"#2DBF82":"#F5B731"}/>
       <MRow label="Rest Days" value={game.rest===null?"—":game.rest+" days"} color={game.rest===0?"#C8102E":game.rest===1?"#E07530":S.text}/>
       <MRow label="Distance" value={game.dist>0?game.dist.toLocaleString()+" mi":"—"}/>
@@ -289,17 +296,17 @@ function GameDetail({game,abbr,onClose}){
       <MRow label="Est. Flight" value={game.flight>0?game.flight+" hrs":"—"}/>
     </div>
     <div>
-      <div style={{fontFamily:S.mono,fontSize:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:10}}>Cumulative Load — Prior Day Windows</div>
+      <div style={{fontFamily:S.mono,fontSize:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:10}}>Cumulative Load — Prior Day Windows</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
         {rd.map(r=><div key={r.w} style={{background:S.card,border:"1px solid "+S.border,borderRadius:8,padding:"10px 12px"}}>
-          <div style={{fontFamily:S.mono,fontSize:9,color:S.dim,marginBottom:6}}>{r.w}</div>
+          <div style={{fontFamily:S.mono,fontSize:9,color:S.mid,marginBottom:6}}>{r.w}</div>
           <div style={{fontFamily:S.mono,fontSize:13,fontWeight:700,color:r.dist>0?S.text:S.dim}}>{r.dist>0?r.dist.toLocaleString()+"mi":"—"}</div>
-          <div style={{fontFamily:S.sans,fontSize:10,color:S.mid,marginTop:2}}>{r.g}g · {r.tz}h tz</div>
+          <div style={{fontFamily:S.sans,fontSize:10,color:S.text,marginTop:2}}>{r.g}g · {r.tz}h tz</div>
         </div>)}
       </div>
       <BarChart data={rd} valueKey="dist" colorFn={()=>"#1D428A"} height={60} labelKey="w"/>
     </div>
-    <button onClick={onClose} style={{marginTop:16,padding:"5px 14px",background:"transparent",border:"1px solid "+S.border,borderRadius:6,color:S.mid,fontFamily:S.mono,fontSize:10,cursor:"pointer"}}>Close</button>
+    <button onClick={onClose} style={{marginTop:16,padding:"5px 14px",background:"transparent",border:"1px solid "+S.border,borderRadius:6,color:S.text,fontFamily:S.mono,fontSize:10,cursor:"pointer"}}>Close</button>
   </div>;
 }
 
@@ -314,17 +321,17 @@ function MultiSummary({games}){
     <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:16}}>
       {[{label:"Total Miles",val:td.toLocaleString()},{label:"Avg Rest",val:ar+"d"},{label:"TZ Hours",val:Math.abs(games.reduce((s,g)=>s+g.tzShift,0))||"—"},{label:"B2B Count",val:games.filter(g=>g.isB2B2).length},{label:"Avg Index",val:ai,color:sc(ai)}]
         .map(m=><div key={m.label} style={{background:S.card,border:"1px solid "+S.border,borderRadius:8,padding:"10px 12px"}}>
-          <div style={{fontFamily:S.mono,fontSize:9,color:S.dim,marginBottom:4}}>{m.label}</div>
+          <div style={{fontFamily:S.mono,fontSize:9,color:S.mid,marginBottom:4}}>{m.label}</div>
           <div style={{fontFamily:S.mono,fontSize:16,fontWeight:700,color:m.color||S.text}}>{m.val}</div>
         </div>)}
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
       <div>
-        <div style={{fontFamily:S.mono,fontSize:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>Stress Index</div>
+        <div style={{fontFamily:S.mono,fontSize:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>Stress Index</div>
         <BarChart data={cd} valueKey="idx" colorFn={v=>sc(v)} height={80} labelKey="date"/>
       </div>
       <div>
-        <div style={{fontFamily:S.mono,fontSize:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>Miles Traveled</div>
+        <div style={{fontFamily:S.mono,fontSize:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>Miles Traveled</div>
         <BarChart data={cd} valueKey="dist" colorFn={()=>"#1D428A"} height={80} labelKey="date"/>
       </div>
     </div>
@@ -336,15 +343,15 @@ function TeamPanel({abbr,sched}){
   return <div style={{background:S.card,border:"1px solid "+S.border,borderRadius:12,padding:18,borderTop:"3px solid "+t.color}}>
     <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
       <img src={tLogo(t.logo)} alt={abbr} width={44} height={44} style={{objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
-      <div><div style={{fontFamily:S.disp,fontSize:15,fontWeight:800,color:S.text}}>{t.name}</div><div style={{fontFamily:S.mono,fontSize:10,color:S.mid}}>{sched.length} games</div></div>
+      <div><div style={{fontFamily:S.disp,fontSize:15,fontWeight:800,color:S.text}}>{t.name}</div><div style={{fontFamily:S.mono,fontSize:10,color:S.text}}>{sched.length} games</div></div>
     </div>
     {[{label:"Avg Stress",val:avg,color:sc(avg)},{label:"Total Miles",val:Math.round(sched.reduce((s,g)=>s+g.dist,0)).toLocaleString()},{label:"B2B Games",val:sched.filter(g=>g.isB2B2).length},{label:"3-in-4",val:sched.filter(g=>g.is3in4).length},{label:"TZ Hours",val:Math.round(sched.reduce((s,g)=>s+Math.abs(g.tzShift),0))}]
       .map(m=><div key={m.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid "+S.border}}>
-        <span style={{fontFamily:S.mono,fontSize:10,color:S.dim}}>{m.label}</span>
+        <span style={{fontFamily:S.mono,fontSize:10,color:S.mid}}>{m.label}</span>
         <span style={{fontFamily:S.mono,fontSize:13,fontWeight:700,color:m.color||S.text}}>{m.val}</span>
       </div>)}
     <div style={{marginTop:14}}>
-      <div style={{fontFamily:S.mono,fontSize:9,color:S.dim,marginBottom:6}}>Season Map</div>
+      <div style={{fontFamily:S.mono,fontSize:9,color:S.mid,marginBottom:6}}>Season Map</div>
       <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
         {sched.map((g,i)=><div key={i} title={fmtD(g.date)+" — "+g.idx} style={{width:8,height:8,borderRadius:2,background:sc(g.idx),opacity:0.8}}/>)}
       </div>
@@ -356,13 +363,13 @@ function CompareView({a1,a2,s1,s2,onBack}){
   const n=Math.min(s1.length,s2.length,82);
   const cd=Array.from({length:n},(_,i)=>({game:i+1,[a1]:s1[i]?s1[i].idx:0,[a2]:s2[i]?s2[i].idx:0}));
   return <div>
-    <button onClick={onBack} style={{background:"none",border:"none",color:S.mid,cursor:"pointer",fontFamily:S.mono,fontSize:11,marginBottom:20,padding:0}}>← Back</button>
+    <button onClick={onBack} style={{background:"none",border:"none",color:S.text,cursor:"pointer",fontFamily:S.mono,fontSize:11,marginBottom:20,padding:0}}>← Back</button>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
       <TeamPanel abbr={a1} sched={s1}/><TeamPanel abbr={a2} sched={s2}/>
     </div>
     {cd.length>0&&<div style={{background:S.card,border:"1px solid "+S.border,borderRadius:12,padding:20}}>
       <div style={{fontFamily:S.disp,fontSize:14,fontWeight:800,color:S.text,marginBottom:16}}>Stress Index — Game by Game</div>
-      <LineChart data={cd} lines={[{key:a1,color:TEAMS[a1].color,label:a1},{key:a2,color:TEAMS[a2].color,label:a2}]} height={160}/>
+      <LineChart data={cd} lines={[{key:a1,color:compareColors(a1,a2)[0],label:a1},{key:a2,color:compareColors(a1,a2)[1],label:a2}]} height={160}/>
     </div>}
   </div>;
 }
@@ -375,6 +382,7 @@ function App(){
   const [checkedIds,setCheckedIds]=useState([]),[focused,setFocused]=useState(null),[search,setSearch]=useState("");
   const [season,setSeason]=useState(2026);
   const [glassMode,setGlassMode]=useState(typeof window!=="undefined"?window.innerWidth<=640:false);
+  const [rowLimit,setRowLimit]=useState(24);
 
   useEffect(()=>{
     const onR=()=>setGlassMode(window.innerWidth<=640);
@@ -385,21 +393,31 @@ function App(){
   const load=useCallback(async abbr=>{
     const key=abbr+"-"+season;
     if(schedules[key]) return;
+    const cached=localStorage.getItem("sched-"+key);
+    if(cached){
+      try{setSchedules(p=>({...p,[key]:JSON.parse(cached)}));return;}catch(_){localStorage.removeItem("sched-"+key);}
+    }
     setLoading(true);setError(null);
-    try{const games=await fetchSchedule(abbr,season,m=>setLoadMsg(m));setSchedules(p=>({...p,[key]:games}));setLoadMsg("");}
+    try{
+      const games=await fetchSchedule(abbr,season,m=>setLoadMsg(m));
+      setSchedules(p=>({...p,[key]:games}));
+      localStorage.setItem("sched-"+key,JSON.stringify(games));
+      setLoadMsg("");
+    }
     catch(e){setError(e.message);}
     setLoading(false);
   },[schedules,season]);
 
   const handleTeam=async abbr=>{
     if(picking){setCompare(abbr);setPicking(false);await load(abbr);setView("compare");return;}
-    setTeam(abbr);setCheckedIds([]);setFocused(null);setView("team");await load(abbr);
+    setTeam(abbr);setCheckedIds([]);setFocused(null);setRowLimit(24);setView("team");await load(abbr);
   };
   const hCheck=id=>setCheckedIds(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const hFocus=game=>setFocused(p=>p&&p.id===game.id?null:game);
   const goHome=()=>{setView("teams");setTeam(null);setCompare(null);setPicking(false);};
   const sched=team?(schedules[team+"-"+season]||[]):[];
   const checked=sched.filter(g=>checkedIds.includes(g.id));
+  const visibleSched=glassMode?sched.slice(0,rowLimit):sched;
   const avg=sched.length?Math.round(sched.reduce((s,g)=>s+g.idx,0)/sched.length):0;
   const east=Object.keys(TEAMS).filter(k=>TEAMS[k].conf==="E");
   const west=Object.keys(TEAMS).filter(k=>TEAMS[k].conf==="W");
@@ -414,12 +432,12 @@ function App(){
         <button onClick={goHome} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
           <span style={{fontFamily:S.disp,fontSize:glassMode?17:21,fontWeight:900,color:S.accent,letterSpacing:"-0.04em"}}>AIR<span style={{color:S.text}}>BALL</span></span>
         </button>
-        <span style={{fontFamily:S.mono,fontSize:glassMode?8:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.14em"}}>NBA Schedule Stress</span>
+        <span style={{fontFamily:S.mono,fontSize:glassMode?8:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.14em"}}>NBA Schedule Stress</span>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
         {picking&&<span style={{fontFamily:S.mono,fontSize:11,color:"#F5B731",animation:"pulse 1.2s infinite"}}>Select team to compare →</span>}
-        {view==="team"&&team&&!picking&&<button onClick={()=>{setPicking(true);setView("teams");}} style={{padding:"5px 14px",background:"transparent",border:"1px solid "+S.border,borderRadius:6,color:S.mid,fontFamily:S.mono,fontSize:10,cursor:"pointer"}}>Compare Team</button>}
-        {view==="compare"&&<button onClick={()=>{setView("team");setCompare(null);}} style={{padding:"5px 14px",background:"transparent",border:"1px solid "+S.border,borderRadius:6,color:S.mid,fontFamily:S.mono,fontSize:10,cursor:"pointer"}}>← Back</button>}
+        {view==="team"&&team&&!picking&&<button onClick={()=>{setPicking(true);setView("teams");}} style={{padding:"5px 14px",background:"transparent",border:"1px solid "+S.border,borderRadius:6,color:S.text,fontFamily:S.mono,fontSize:10,cursor:"pointer"}}>Compare Team</button>}
+        {view==="compare"&&<button onClick={()=>{setView("team");setCompare(null);}} style={{padding:"5px 14px",background:"transparent",border:"1px solid "+S.border,borderRadius:6,color:S.text,fontFamily:S.mono,fontSize:10,cursor:"pointer"}}>← Back</button>}
       </div>
     </div>
 
@@ -429,19 +447,19 @@ function App(){
       {view==="teams"&&<div>
         {picking&&<div style={{background:"#F5B73115",border:"1px solid #F5B73145",borderRadius:8,padding:"10px 16px",marginBottom:20,fontFamily:S.mono,fontSize:11,color:"#F5B731",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <span>Pick a team to compare with <strong>{TEAMS[team]&&TEAMS[team].name}</strong></span>
-          <button onClick={()=>{setPicking(false);setView("team");}} style={{background:"none",border:"none",color:S.mid,cursor:"pointer",fontFamily:S.mono,fontSize:10}}>Cancel</button>
+          <button onClick={()=>{setPicking(false);setView("team");}} style={{background:"none",border:"none",color:S.text,cursor:"pointer",fontFamily:S.mono,fontSize:10}}>Cancel</button>
         </div>}
         <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:24,flexWrap:"wrap"}}>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search teams…"
             style={{background:S.surface,border:"1px solid "+S.border,borderRadius:8,padding:"7px 14px",color:S.text,fontFamily:S.mono,fontSize:11,width:220,outline:"none"}}/>
-          <label style={{fontFamily:S.mono,fontSize:10,color:S.mid}}>Season</label>
+          <label style={{fontFamily:S.mono,fontSize:10,color:S.text}}>Season</label>
           <select value={season} onChange={e=>setSeason(parseInt(e.target.value,10))}
             style={{background:S.surface,border:"1px solid "+S.border,borderRadius:8,padding:"7px 10px",color:S.text,fontFamily:S.mono,fontSize:11,outline:"none"}}>
             {[2026,2025,2024,2023,2022].map(y=><option key={y} value={y}>{y}-{String(y+1).slice(2)}</option>)}
           </select>
         </div>
         {[{label:"Eastern Conference",teams:fil(east)},{label:"Western Conference",teams:fil(west)}].map(({label,teams})=><div key={label} style={{marginBottom:30}}>
-          <div style={{fontFamily:S.mono,fontSize:glassMode?8:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:10}}>{label}</div>
+          <div style={{fontFamily:S.mono,fontSize:glassMode?8:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:10}}>{label}</div>
           <div style={{display:"grid",gridTemplateColumns:glassMode?"repeat(2,minmax(0,1fr))":"repeat(auto-fill,minmax(148px,1fr))",gap:8}}>
             {teams.map(abbr=><TeamCard key={abbr} abbr={abbr} selected={abbr===team||abbr===compare} onClick={handleTeam}/>)}
           </div>
@@ -451,41 +469,42 @@ function App(){
       {/* TEAM SCHEDULE */}
       {view==="team"&&team&&<div>
         <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:22}}>
-          <button onClick={()=>{setView("teams");setTeam(null);}} style={{background:"none",border:"none",color:S.mid,cursor:"pointer",fontFamily:S.mono,fontSize:13,padding:0}}>←</button>
+          <button onClick={()=>{setView("teams");setTeam(null);}} style={{background:"none",border:"none",color:S.text,cursor:"pointer",fontFamily:S.mono,fontSize:13,padding:0}}>←</button>
           <img src={tLogo(TEAMS[team]&&TEAMS[team].logo)} alt={team} width={52} height={52} style={{objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
           <div>
             <div style={{fontFamily:S.disp,fontSize:24,fontWeight:900,color:S.text}}>{TEAMS[team]&&TEAMS[team].name}</div>
-            {sched.length>0&&<div style={{fontFamily:S.mono,fontSize:10,color:S.mid,marginTop:3}}>{season}-{String(season+1).slice(2)} · {sched.length} games · {sched.filter(g=>g.isB2B2).length} B2B · {sched.filter(g=>g.is3in4).length} 3-in-4</div>}
+            {sched.length>0&&<div style={{fontFamily:S.mono,fontSize:10,color:S.text,marginTop:3}}>{season}-{String(season+1).slice(2)} · {sched.length} games · {sched.filter(g=>g.isB2B2).length} B2B · {sched.filter(g=>g.is3in4).length} 3-in-4</div>}
           </div>
           {sched.length>0&&<div style={{marginLeft:"auto",textAlign:"right"}}>
-            <div style={{fontFamily:S.mono,fontSize:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.1em"}}>Season Avg</div>
+            <div style={{fontFamily:S.mono,fontSize:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.1em"}}>Season Avg</div>
             <div style={{fontFamily:S.mono,fontSize:32,fontWeight:900,color:sc(avg),lineHeight:1.1}}>{avg}</div>
             <div style={{fontFamily:S.mono,fontSize:9,color:sc(avg),textTransform:"uppercase"}}>{sl(avg)}</div>
           </div>}
         </div>
 
-        {sched.length>0&&<div style={{background:S.surface,border:"1px solid "+S.border,borderRadius:10,padding:"12px 16px",marginBottom:14}}>
-          <div style={{fontFamily:S.mono,fontSize:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:8}}>Season Stress Timeline</div>
+        {sched.length>0&&<div style={{background:S.surface,border:"1px solid "+S.border,borderRadius:10,padding:"12px 16px",marginBottom:14,backdropFilter:"blur(10px)"}}>
+          <div style={{fontFamily:S.mono,fontSize:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:8}}>Season Stress Timeline</div>
           <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
             {sched.map((g,i)=><div key={i} onClick={()=>{hFocus(g);setCheckedIds([g.id]);}} title={fmtD(g.date)+" vs "+g.opp+" — "+sl(g.idx)+" ("+g.idx+")"}
               style={{width:9,height:9,borderRadius:2,background:sc(g.idx),opacity:checkedIds.includes(g.id)?1:0.65,cursor:"pointer",outline:checkedIds.includes(g.id)?"1px solid #fff":"none"}}/>)}
           </div>
         </div>}
 
-        {loading&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,padding:40,color:S.mid,fontFamily:S.mono,fontSize:11}}>
+        {loading&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,padding:40,color:S.text,fontFamily:S.mono,fontSize:11}}>
           <div style={{width:16,height:16,border:"2px solid "+S.border,borderTop:"2px solid "+S.accent,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>
           {loadMsg||"Loading…"}
         </div>}
 
         {error&&<div style={{background:"#C8102E18",border:"1px solid #C8102E44",borderRadius:8,padding:"14px 16px",marginBottom:14,fontFamily:S.mono,fontSize:11,color:"#E87070",whiteSpace:"pre-line"}}>{error}</div>}
 
-        {sched.length>0&&<div style={{background:S.surface,border:"1px solid "+S.border,borderRadius:10,overflow:"hidden"}}>
+        {sched.length>0&&<div style={{background:S.surface,border:"1px solid "+S.border,borderRadius:10,overflow:"hidden",backdropFilter:"blur(10px)"}}>
           <div style={{display:"grid",gridTemplateColumns:COL,gap:8,padding:"7px 14px",borderBottom:"1px solid "+S.border,background:S.card}}>
-            {["","Date","Opponent","Rest","Miles","TZ","Density","IDX"].map((h,i)=><span key={i} style={{fontFamily:S.mono,fontSize:8,color:S.dim,textTransform:"uppercase",letterSpacing:"0.14em",textAlign:i>=3?"right":"left"}}>{h}</span>)}
+            {["","Date","Opponent","Rest","Miles","TZ","Density","IDX"].map((h,i)=><span key={i} style={{fontFamily:S.mono,fontSize:8,color:S.mid,textTransform:"uppercase",letterSpacing:"0.14em",textAlign:i>=3?"right":"left"}}>{h}</span>)}
           </div>
-          {sched.map(game=><GameRow key={game.id} game={game} selected={checkedIds.includes(game.id)} onCheck={hCheck} onClick={hFocus}/>)}
+          {visibleSched.map(game=><GameRow key={game.id} game={game} selected={checkedIds.includes(game.id)} onCheck={hCheck} onClick={hFocus}/>)}}
         </div>}
 
+        {glassMode&&sched.length>rowLimit&&<div style={{display:"flex",justifyContent:"center",marginTop:10}}><button onClick={()=>setRowLimit(v=>Math.min(v+24,sched.length))} style={{padding:"6px 12px",background:"transparent",border:"1px solid "+S.border,borderRadius:6,color:S.text,fontFamily:S.mono,fontSize:10,cursor:"pointer"}}>Load More Games</button></div>}
         {focused&&<GameDetail game={focused} abbr={team} onClose={()=>{setFocused(null);setCheckedIds([]);}}/>}
         {checked.length>1&&!focused&&<MultiSummary games={checked}/>}
       </div>}
@@ -497,11 +516,11 @@ function App(){
 
     {/* LEGEND */}
     <div style={{display:glassMode?"none":"flex",position:"fixed",bottom:0,left:0,right:0,borderTop:"1px solid "+S.border,background:S.bg+"f0",backdropFilter:"blur(8px)",padding:"8px 28px",alignItems:"center",gap:24}}>
-      <span style={{fontFamily:S.mono,fontSize:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.1em"}}>Stress Index</span>
+      <span style={{fontFamily:S.mono,fontSize:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.1em"}}>Stress Index</span>
       {[["Low","#2DBF82","<25"],["Moderate","#F5B731","25–49"],["High","#E07530","50–69"],["Extreme","#C8102E","70+"]].map(([label,color,range])=><div key={label} style={{display:"flex",alignItems:"center",gap:5}}>
-        <div style={{width:8,height:8,borderRadius:2,background:color}}/><span style={{fontFamily:S.mono,fontSize:9,color:S.mid}}>{label}</span><span style={{fontFamily:S.mono,fontSize:8,color:S.dim}}>{range}</span>
+        <div style={{width:8,height:8,borderRadius:2,background:color}}/><span style={{fontFamily:S.mono,fontSize:9,color:S.text}}>{label}</span><span style={{fontFamily:S.mono,fontSize:8,color:S.mid}}>{range}</span>
       </div>)}
-      <span style={{marginLeft:"auto",fontFamily:S.mono,fontSize:8,color:S.dim}}>airball (Fernández, 2020) · ESPN live · Index arbitrary/unvalidated</span>
+      <span style={{marginLeft:"auto",fontFamily:S.mono,fontSize:8,color:S.mid}}>airball (Fernández, 2020) · ESPN live · Index arbitrary/unvalidated</span>
     </div>
   </div>;
 }
