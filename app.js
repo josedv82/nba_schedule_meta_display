@@ -136,11 +136,11 @@ async function fetchSchedule(abbr,season,onStatus){
     throw new Error("Not enough regular season games found for "+season+".");
   }catch(e){
     console.warn("ESPN",season,e.message);
-    throw new Error("ESPN fetch failed for season "+season+". If you opened this file directly (file://), try serving it via a local server instead:
+    throw new Error(`ESPN fetch failed for season ${season}. If you opened this file directly (file://), try serving it via a local server instead:
 
   python -m http.server 8080
 
-then open http://localhost:8080/nba-stress.html");
+then open http://localhost:8080/nba-stress.html`);
   }
 }
 
