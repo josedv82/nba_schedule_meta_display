@@ -1,0 +1,8 @@
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#000;color:#F7FBFF;font-family:"DM Sans",sans-serif;width:600px;height:600px;overflow:hidden;}
+#root{width:600px;height:600px;overflow:hidden;}
+::-webkit-scrollbar{width:0;height:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.focusable{border:2px solid transparent;min-height:44px;}
+.focusable:focus{outline:none;border-color:#00d4ff;box-shadow:0 0 12px rgba(0,212,255,.45);}
