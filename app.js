@@ -9,6 +9,7 @@ const S = {
 const sc = i => i<25?"#2DBF82":i<50?"#F5B731":i<70?"#E07530":"#C8102E";
 const sl = i => i<25?"Low":i<50?"Moderate":i<70?"High":"Extreme";
 const COMPARE_COLORS=["#5AD1FF","#FF7AA2","#88F26E","#FFD166","#C5A3FF","#6EE7D8"];
+const SEASONS=[2026,2025,2024,2023,2022];
 const compareColors=(a1,a2)=>{
   const i1=Math.abs((a1||"A").charCodeAt(0)+(a1||"A").charCodeAt(1))%COMPARE_COLORS.length;
   let i2=Math.abs((a2||"B").charCodeAt(0)+(a2||"B").charCodeAt(1)+3)%COMPARE_COLORS.length;
@@ -232,7 +233,7 @@ function MRow({label,value,color}){
 
 function TeamCard({abbr,selected,onClick}){
   const t=TEAMS[abbr],[hov,setHov]=useState(false);
-  return <div onClick={()=>onClick(abbr)} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+  return <div className="focusable" tabIndex={0} onClick={()=>onClick(abbr)} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
     style={{background:selected?t.color+"20":hov?S.surface:S.card,border:"1px solid "+(selected?t.color:hov?S.border:"#131f2e"),borderRadius:8,padding:"10px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,transition:"all 0.12s"}}>
     <img src={tLogo(t.logo)} alt={abbr} width={32} height={32} style={{objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
     <div>
@@ -386,11 +387,26 @@ function CompareView({a1,a2,s1,s2,onBack}){
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
+
+function QuickGameDetail({game,onClose}){
+  if(!game) return null;
+  const c=sc(game.idx);
+  return <div style={{marginTop:8,background:S.surface,border:"1px solid "+S.border,borderRadius:10,padding:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <div style={{fontSize:20,fontWeight:800,color:S.text}}>{fmtD(game.date)} {game.isHome?"vs":"@"} {game.opp}</div>
+      <button className="focusable" onClick={onClose} style={{background:"transparent",border:"1px solid "+S.border,color:S.text,borderRadius:6,padding:"6px 10px",fontSize:14}}>Close</button>
+    </div>
+    <div style={{marginTop:8,fontSize:18,color:c}}>Stress {game.idx} · {sl(game.idx)}</div>
+    <div style={{marginTop:6,fontSize:16,color:S.mid}}>Rest {game.rest===null?"—":game.rest+"d"} · Miles {game.dist||0} · TZ {game.tzShift===0?"—":(game.tzShift>0?"+":"")+game.tzShift+"h"}</div>
+    <div style={{marginTop:6,fontSize:16,color:S.mid}}>{game.result?`Final ${game.result} ${game.tScore}-${game.oScore}`:"Upcoming"}</div>
+  </div>;
+}
+
 function App(){
-  const [view,setView]=useState("teams"),[team,setTeam]=useState(null),[compare,setCompare]=useState(null);
-  const [picking,setPicking]=useState(false),[schedules,setSchedules]=useState({});
+  const [view,setView]=useState("teams"),[team,setTeam]=useState(null);
+  const [schedules,setSchedules]=useState({});
   const [loading,setLoading]=useState(false),[loadMsg,setLoadMsg]=useState(""),[error,setError]=useState(null);
-  const [checkedIds,setCheckedIds]=useState([]),[focused,setFocused]=useState(null),[search,setSearch]=useState("");
+  const [focused,setFocused]=useState(null);
   const [season,setSeason]=useState(2026);
   const [glassMode,setGlassMode]=useState(typeof window!=="undefined"?window.innerWidth<=640:false);
   const [rowLimit,setRowLimit]=useState(24);
@@ -399,6 +415,24 @@ function App(){
     const onR=()=>setGlassMode(window.innerWidth<=640);
     window.addEventListener("resize",onR);
     return ()=>window.removeEventListener("resize",onR);
+  },[]);
+
+  useEffect(()=>{
+    const move=(dir)=>{
+      const els=Array.from(document.querySelectorAll('.focusable:not([disabled])'));
+      if(!els.length) return;
+      const i=els.indexOf(document.activeElement);
+      const n=(dir<0)?(i<=0?els.length-1:i-1):(i>=els.length-1?0:i+1);
+      (els[i===-1?0:n]||els[0]).focus();
+    };
+    const onKey=e=>{
+      if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Enter"].includes(e.key)) e.preventDefault();
+      if(e.key==="ArrowUp"||e.key==="ArrowLeft") move(-1);
+      if(e.key==="ArrowDown"||e.key==="ArrowRight") move(1);
+      if(e.key==="Enter"&&document.activeElement&&document.activeElement.click) document.activeElement.click();
+    };
+    document.addEventListener('keydown',onKey);
+    return ()=>document.removeEventListener('keydown',onKey);
   },[]);
 
   const load=useCallback(async abbr=>{
@@ -420,20 +454,16 @@ function App(){
   },[schedules,season]);
 
   const handleTeam=async abbr=>{
-    if(picking){setCompare(abbr);setPicking(false);await load(abbr);setView("compare");return;}
-    setTeam(abbr);setCheckedIds([]);setFocused(null);setRowLimit(24);setView("team");await load(abbr);
+    setTeam(abbr);setFocused(null);setRowLimit(24);setView("team");await load(abbr);
   };
-  const hCheck=id=>setCheckedIds(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const hFocus=game=>setFocused(p=>p&&p.id===game.id?null:game);
-  const goHome=()=>{setView("teams");setTeam(null);setCompare(null);setPicking(false);};
+  const goHome=()=>{setView("teams");setTeam(null);};
+  const cycleSeason=()=>{const i=SEASONS.indexOf(season);setSeason(SEASONS[(i+1)%SEASONS.length]);};
   const sched=team?(schedules[team+"-"+season]||[]):[];
-  const checked=sched.filter(g=>checkedIds.includes(g.id));
-  const visibleSched=glassMode?sched.slice(0,rowLimit):sched;
+  const visibleSched=glassMode?sched.slice(0,8):sched;
   const avg=sched.length?Math.round(sched.reduce((s,g)=>s+g.idx,0)/sched.length):0;
   const east=Object.keys(TEAMS).filter(k=>TEAMS[k].conf==="E");
   const west=Object.keys(TEAMS).filter(k=>TEAMS[k].conf==="W");
-  const fil=arr=>search?arr.filter(k=>TEAMS[k].name.toLowerCase().includes(search.toLowerCase())||k.includes(search.toUpperCase())):arr;
-  const COL=glassMode?"16px 52px 1fr 30px 52px 34px 44px 38px":"18px 62px 1fr 38px 68px 44px 76px 58px";
 
   return <div style={{background:S.bg,minHeight:"100vh",color:S.text}}>
 
@@ -446,9 +476,9 @@ function App(){
         <span style={{fontFamily:S.mono,fontSize:glassMode?8:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.14em"}}>NBA Schedule Stress</span>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
-        {picking&&<span style={{fontFamily:S.mono,fontSize:11,color:"#F5B731",animation:"pulse 1.2s infinite"}}>Select team to compare →</span>}
-        {view==="team"&&team&&!picking&&<button onClick={()=>{setPicking(true);setView("teams");}} style={{padding:"5px 14px",background:"transparent",border:"1px solid "+S.border,borderRadius:6,color:S.text,fontFamily:S.mono,fontSize:10,cursor:"pointer"}}>Compare Team</button>}
-        {view==="compare"&&<button onClick={()=>{setView("team");setCompare(null);}} style={{padding:"5px 14px",background:"transparent",border:"1px solid "+S.border,borderRadius:6,color:S.text,fontFamily:S.mono,fontSize:10,cursor:"pointer"}}>← Back</button>}
+        
+        
+        
       </div>
     </div>
 
@@ -456,23 +486,16 @@ function App(){
 
       {/* TEAMS */}
       {view==="teams"&&<div>
-        {picking&&<div style={{background:"#F5B73115",border:"1px solid #F5B73145",borderRadius:8,padding:"10px 16px",marginBottom:20,fontFamily:S.mono,fontSize:11,color:"#F5B731",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <span>Pick a team to compare with <strong>{TEAMS[team]&&TEAMS[team].name}</strong></span>
-          <button onClick={()=>{setPicking(false);setView("team");}} style={{background:"none",border:"none",color:S.text,cursor:"pointer",fontFamily:S.mono,fontSize:10}}>Cancel</button>
-        </div>}
-        <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:24,flexWrap:"wrap"}}>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search teams…"
-            style={{background:S.surface,border:"1px solid "+S.border,borderRadius:8,padding:"7px 14px",color:S.text,fontFamily:S.mono,fontSize:11,width:220,outline:"none"}}/>
-          <label style={{fontFamily:S.mono,fontSize:10,color:S.text}}>Season</label>
-          <select value={season} onChange={e=>setSeason(parseInt(e.target.value,10))}
-            style={{background:S.surface,border:"1px solid "+S.border,borderRadius:8,padding:"7px 10px",color:S.text,fontFamily:S.mono,fontSize:11,outline:"none"}}>
-            {[2026,2025,2024,2023,2022].map(y=><option key={y} value={y}>{y}-{String(y+1).slice(2)}</option>)}
-          </select>
+        
+        <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}>
+          <button className="focusable" onClick={cycleSeason} style={{background:S.surface,border:"1px solid "+S.border,borderRadius:8,padding:"10px 14px",color:S.text,fontFamily:S.mono,fontSize:16,cursor:"pointer"}}>
+            Season {season}-{String(season+1).slice(2)}
+          </button>
         </div>
-        {[{label:"Eastern Conference",teams:fil(east)},{label:"Western Conference",teams:fil(west)}].map(({label,teams})=><div key={label} style={{marginBottom:30}}>
+        {[{label:"Eastern Conference",teams:east},{label:"Western Conference",teams:west}].map(({label,teams})=><div key={label} style={{marginBottom:30}}>
           <div style={{fontFamily:S.mono,fontSize:glassMode?8:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:10}}>{label}</div>
           <div style={{display:"grid",gridTemplateColumns:glassMode?"repeat(2,minmax(0,1fr))":"repeat(auto-fill,minmax(148px,1fr))",gap:8}}>
-            {teams.map(abbr=><TeamCard key={abbr} abbr={abbr} selected={abbr===team||abbr===compare} onClick={handleTeam}/>)}
+            {teams.map(abbr=><TeamCard key={abbr} abbr={abbr} selected={abbr===team} onClick={handleTeam}/>)}
           </div>
         </div>)}
       </div>}
@@ -493,13 +516,6 @@ function App(){
           </div>}
         </div>
 
-        {sched.length>0&&<div style={{background:S.surface,border:"1px solid "+S.border,borderRadius:10,padding:"12px 16px",marginBottom:14,backdropFilter:"blur(10px)"}}>
-          <div style={{fontFamily:S.mono,fontSize:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:8}}>Season Stress Timeline</div>
-          <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
-            {sched.map((g,i)=><div key={i} onClick={()=>{hFocus(g);setCheckedIds([g.id]);}} title={fmtD(g.date)+" vs "+g.opp+" — "+sl(g.idx)+" ("+g.idx+")"}
-              style={{width:9,height:9,borderRadius:2,background:sc(g.idx),opacity:checkedIds.includes(g.id)?1:0.65,cursor:"pointer",outline:checkedIds.includes(g.id)?"1px solid #fff":"none"}}/>)}
-          </div>
-        </div>}
 
         {loading&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,padding:40,color:S.text,fontFamily:S.mono,fontSize:11}}>
           <div style={{width:16,height:16,border:"2px solid "+S.border,borderTop:"2px solid "+S.accent,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>
@@ -508,30 +524,25 @@ function App(){
 
         {error&&<div style={{background:"#C8102E18",border:"1px solid #C8102E44",borderRadius:8,padding:"14px 16px",marginBottom:14,fontFamily:S.mono,fontSize:11,color:"#E87070",whiteSpace:"pre-line"}}>{error}</div>}
 
-        {sched.length>0&&<div style={{background:S.surface,border:"1px solid "+S.border,borderRadius:10,overflow:"hidden",backdropFilter:"blur(10px)"}}>
-          <div style={{display:"grid",gridTemplateColumns:COL,gap:8,padding:"7px 14px",borderBottom:"1px solid "+S.border,background:S.card}}>
-            {["","Date","Opponent","Rest","Miles","TZ","Density","IDX"].map((h,i)=><span key={i} style={{fontFamily:S.mono,fontSize:8,color:S.mid,textTransform:"uppercase",letterSpacing:"0.14em",textAlign:i>=3?"right":"left"}}>{h}</span>)}
-          </div>
-          {visibleSched.map(game=><GameRow key={game.id} game={game} selected={checkedIds.includes(game.id)} onCheck={hCheck} onClick={hFocus}/>)}}
+        {sched.length>0&&<div style={{display:"grid",gap:8}}>
+          {visibleSched.map(game=><button key={game.id} className="focusable" onClick={()=>hFocus(game)} style={{textAlign:"left",background:S.surface,border:"1px solid "+S.border,borderRadius:10,padding:"10px 12px",color:S.text,cursor:"pointer"}}>
+            <div style={{fontSize:18,fontWeight:700}}>{fmtD(game.date)} {game.isHome?"vs":"@"} {game.opp}</div>
+            <div style={{fontSize:16,color:S.mid}}>Stress {game.idx} · {sl(game.idx)} {game.result?`· ${game.result} ${game.tScore}-${game.oScore}`:"· Upcoming"}</div>
+          </button>)}
         </div>}
 
-        {glassMode&&sched.length>rowLimit&&<div style={{display:"flex",justifyContent:"center",marginTop:10}}><button onClick={()=>setRowLimit(v=>Math.min(v+24,sched.length))} style={{padding:"6px 12px",background:"transparent",border:"1px solid "+S.border,borderRadius:6,color:S.text,fontFamily:S.mono,fontSize:10,cursor:"pointer"}}>Load More Games</button></div>}
-        {focused&&<GameDetail game={focused} abbr={team} onClose={()=>{setFocused(null);setCheckedIds([]);}}/>}
-        {checked.length>1&&!focused&&<MultiSummary games={checked}/>}
+        {focused&&(glassMode?<QuickGameDetail game={focused} onClose={()=>setFocused(null)}/>:<GameDetail game={focused} abbr={team} onClose={()=>setFocused(null)}/>)}
       </div>}
 
-      {/* COMPARE */}
-      {view==="compare"&&team&&compare&&<CompareView a1={team} a2={compare} s1={schedules[team+"-"+season]||[]} s2={schedules[compare+"-"+season]||[]} onBack={()=>{setView("team");setCompare(null);}}/>}
 
     </div>
 
     {/* LEGEND */}
     <div style={{display:glassMode?"none":"flex",position:"fixed",bottom:0,left:0,right:0,borderTop:"1px solid "+S.border,background:S.bg+"f0",backdropFilter:"blur(8px)",padding:"8px 28px",alignItems:"center",gap:24}}>
       <span style={{fontFamily:S.mono,fontSize:9,color:S.mid,textTransform:"uppercase",letterSpacing:"0.1em"}}>Stress Index</span>
-      {[["Low","#2DBF82","<25"],["Moderate","#F5B731","25–49"],["High","#E07530","50–69"],["Extreme","#C8102E","70+"]].map(([label,color,range])=><div key={label} style={{display:"flex",alignItems:"center",gap:5}}>
-        <div style={{width:8,height:8,borderRadius:2,background:color}}/><span style={{fontFamily:S.mono,fontSize:9,color:S.text}}>{label}</span><span style={{fontFamily:S.mono,fontSize:8,color:S.mid}}>{range}</span>
+      {[ ["Low","#2DBF82","<25"],["Moderate","#F5B731","25–49"],["High","#E07530","50–69"],["Extreme","#C8102E","70+"] ].map(([label,color,range])=><div key={label} style={{display:"flex",alignItems:"center",gap:5}}>
+        <div style={{width:8,height:8,borderRadius:2,background:color}}/><span style={{fontFamily:S.mono,fontSize:9,color:S.mid}}>{label}</span><span style={{fontFamily:S.mono,fontSize:8,color:S.mid}}>{range}</span>
       </div>)}
-      <span style={{marginLeft:"auto",fontFamily:S.mono,fontSize:8,color:S.mid}}>airball (Fernández, 2020) · ESPN live · Index arbitrary/unvalidated</span>
     </div>
   </div>;
 }
