@@ -116,21 +116,27 @@ function parseESPN(events,abbr){
   return games.sort((a,b)=>a.date-b.date);
 }
 
-async function fetchSchedule(abbr,onStatus){
+async function fetchSchedule(abbr,season,onStatus){
   const t=TEAMS[abbr];
   const base="https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/"+t.espnId+"/schedule";
-  for(const season of[2026,2025]){
-    onStatus("Loading "+season+" schedule from ESPN…");
-    try{
-      const res=await fetch(base+"?season="+season);
-      if(!res.ok) continue;
-      const data=await res.json();
-      const games=parseESPN(data.events||[],abbr);
-      if(games.length>=20) return calcMetrics(games,abbr);
-    }catch(e){console.warn("ESPN",season,e.message);}
+  onStatus("Loading "+season+" schedule from ESPN…");
+  try{
+    const res=await fetch(base+"?season="+season);
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const data=await res.json();
+    const games=parseESPN(data.events||[],abbr);
+    if(games.length>=20) return calcMetrics(games,abbr);
+    throw new Error("Not enough regular season games found for "+season+".");
+  }catch(e){
+    console.warn("ESPN",season,e.message);
+    throw new Error("ESPN fetch failed for season "+season+". If you opened this file directly (file://), try serving it via a local server instead:
+
+  python -m http.server 8080
+
+then open http://localhost:8080/nba-stress.html");
   }
-  throw new Error("ESPN fetch failed. If you opened this file directly (file://), try serving it via a local server instead:\n\n  python -m http.server 8080\n\nthen open http://localhost:8080/nba-stress.html");
 }
+
 
 // ─── INLINE SVG CHARTS (no Recharts dependency) ───────────────────────────────
 function BarChart({data,valueKey,colorFn,height=70,labelKey}){
@@ -367,6 +373,7 @@ function App(){
   const [picking,setPicking]=useState(false),[schedules,setSchedules]=useState({});
   const [loading,setLoading]=useState(false),[loadMsg,setLoadMsg]=useState(""),[error,setError]=useState(null);
   const [checkedIds,setCheckedIds]=useState([]),[focused,setFocused]=useState(null),[search,setSearch]=useState("");
+  const [season,setSeason]=useState(2026);
   const [glassMode,setGlassMode]=useState(typeof window!=="undefined"?window.innerWidth<=640:false);
 
   useEffect(()=>{
@@ -376,12 +383,13 @@ function App(){
   },[]);
 
   const load=useCallback(async abbr=>{
-    if(schedules[abbr]) return;
+    const key=abbr+"-"+season;
+    if(schedules[key]) return;
     setLoading(true);setError(null);
-    try{const games=await fetchSchedule(abbr,m=>setLoadMsg(m));setSchedules(p=>({...p,[abbr]:games}));setLoadMsg("");}
+    try{const games=await fetchSchedule(abbr,season,m=>setLoadMsg(m));setSchedules(p=>({...p,[key]:games}));setLoadMsg("");}
     catch(e){setError(e.message);}
     setLoading(false);
-  },[schedules]);
+  },[schedules,season]);
 
   const handleTeam=async abbr=>{
     if(picking){setCompare(abbr);setPicking(false);await load(abbr);setView("compare");return;}
@@ -390,7 +398,7 @@ function App(){
   const hCheck=id=>setCheckedIds(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const hFocus=game=>setFocused(p=>p&&p.id===game.id?null:game);
   const goHome=()=>{setView("teams");setTeam(null);setCompare(null);setPicking(false);};
-  const sched=team?(schedules[team]||[]):[];
+  const sched=team?(schedules[team+"-"+season]||[]):[];
   const checked=sched.filter(g=>checkedIds.includes(g.id));
   const avg=sched.length?Math.round(sched.reduce((s,g)=>s+g.idx,0)/sched.length):0;
   const east=Object.keys(TEAMS).filter(k=>TEAMS[k].conf==="E");
@@ -423,9 +431,14 @@ function App(){
           <span>Pick a team to compare with <strong>{TEAMS[team]&&TEAMS[team].name}</strong></span>
           <button onClick={()=>{setPicking(false);setView("team");}} style={{background:"none",border:"none",color:S.mid,cursor:"pointer",fontFamily:S.mono,fontSize:10}}>Cancel</button>
         </div>}
-        <div style={{marginBottom:24}}>
+        <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:24,flexWrap:"wrap"}}>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search teams…"
             style={{background:S.surface,border:"1px solid "+S.border,borderRadius:8,padding:"7px 14px",color:S.text,fontFamily:S.mono,fontSize:11,width:220,outline:"none"}}/>
+          <label style={{fontFamily:S.mono,fontSize:10,color:S.mid}}>Season</label>
+          <select value={season} onChange={e=>setSeason(parseInt(e.target.value,10))}
+            style={{background:S.surface,border:"1px solid "+S.border,borderRadius:8,padding:"7px 10px",color:S.text,fontFamily:S.mono,fontSize:11,outline:"none"}}>
+            {[2026,2025,2024,2023,2022].map(y=><option key={y} value={y}>{y}-{String(y+1).slice(2)}</option>)}
+          </select>
         </div>
         {[{label:"Eastern Conference",teams:fil(east)},{label:"Western Conference",teams:fil(west)}].map(({label,teams})=><div key={label} style={{marginBottom:30}}>
           <div style={{fontFamily:S.mono,fontSize:glassMode?8:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:10}}>{label}</div>
@@ -442,7 +455,7 @@ function App(){
           <img src={tLogo(TEAMS[team]&&TEAMS[team].logo)} alt={team} width={52} height={52} style={{objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
           <div>
             <div style={{fontFamily:S.disp,fontSize:24,fontWeight:900,color:S.text}}>{TEAMS[team]&&TEAMS[team].name}</div>
-            {sched.length>0&&<div style={{fontFamily:S.mono,fontSize:10,color:S.mid,marginTop:3}}>{sched.length} games · {sched.filter(g=>g.isB2B2).length} B2B · {sched.filter(g=>g.is3in4).length} 3-in-4</div>}
+            {sched.length>0&&<div style={{fontFamily:S.mono,fontSize:10,color:S.mid,marginTop:3}}>{season}-{String(season+1).slice(2)} · {sched.length} games · {sched.filter(g=>g.isB2B2).length} B2B · {sched.filter(g=>g.is3in4).length} 3-in-4</div>}
           </div>
           {sched.length>0&&<div style={{marginLeft:"auto",textAlign:"right"}}>
             <div style={{fontFamily:S.mono,fontSize:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.1em"}}>Season Avg</div>
@@ -478,7 +491,7 @@ function App(){
       </div>}
 
       {/* COMPARE */}
-      {view==="compare"&&team&&compare&&<CompareView a1={team} a2={compare} s1={schedules[team]||[]} s2={schedules[compare]||[]} onBack={()=>{setView("team");setCompare(null);}}/>}
+      {view==="compare"&&team&&compare&&<CompareView a1={team} a2={compare} s1={schedules[team+"-"+season]||[]} s2={schedules[compare+"-"+season]||[]} onBack={()=>{setView("team");setCompare(null);}}/>}
 
     </div>
 
