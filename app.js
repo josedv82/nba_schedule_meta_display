@@ -1,4 +1,4 @@
-const { useState, useCallback, useMemo } = React;
+const { useState, useCallback, useMemo, useEffect } = React;
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const S = {
@@ -105,8 +105,13 @@ function parseESPN(events,abbr){
     const theirs=comps.find(c=>c!==mine);if(!theirs) return;
     const opp=normAbbr(theirs.team&&theirs.team.abbreviation);if(!opp||!TEAMS[opp]) return;
     const done=!!(comp.status&&comp.status.type&&comp.status.type.completed);
-    const myS=parseInt(mine.score)||0,thS=parseInt(theirs.score)||0;
-    games.push({id:ev.id||(abbr+i),date:new Date(ev.date),isHome:mine.homeAway==="home",opp,result:done?(myS>thS?"W":"L"):null,tScore:done?myS:null,oScore:done?thS:null,done});
+    const myS=Number.parseInt(mine.score,10),thS=Number.parseInt(theirs.score,10);
+    const hasScore=Number.isFinite(myS)&&Number.isFinite(thS);
+    games.push({
+      id:ev.id||(abbr+i),date:new Date(ev.date),isHome:mine.homeAway==="home",opp,
+      result:done&&hasScore?(myS>thS?"W":"L"):null,
+      tScore:done&&hasScore?myS:null,oScore:done&&hasScore?thS:null,done
+    });
   });
   return games.sort((a,b)=>a.date-b.date);
 }
@@ -226,7 +231,7 @@ function GameRow({game,selected,onCheck,onClick}){
       <span style={{fontFamily:S.mono,fontSize:9,color:S.dim}}>{game.isHome?"vs":"@"}</span>
       <img src={tLogo(opp?opp.logo:game.opp.toLowerCase())} alt={game.opp} width={18} height={18} style={{objectFit:"contain"}} onError={e=>e.target.style.display="none"}/>
       <span style={{fontFamily:S.sans,fontSize:11,fontWeight:600,color:S.text}}>{game.opp}</span>
-      {game.result&&<span style={{fontFamily:S.mono,fontSize:10,fontWeight:700,marginLeft:4,color:game.result==="W"?"#2DBF82":"#E03A3E"}}>{game.result} {game.tScore}–{game.oScore}</span>}
+      {game.result?<span style={{fontFamily:S.mono,fontSize:10,fontWeight:700,marginLeft:4,color:game.result==="W"?"#2DBF82":"#E03A3E"}}>{game.result} {game.tScore}–{game.oScore}</span>:<span style={{fontFamily:S.mono,fontSize:9,marginLeft:4,color:S.dim}}>Upcoming</span>}
     </div>
     <span style={{fontFamily:S.mono,fontSize:11,textAlign:"right",color:game.rest===0?"#E07530":game.rest===1?"#F5B731":S.mid}}>{game.rest===null?"—":game.rest+"d"}</span>
     <span style={{fontFamily:S.mono,fontSize:10,color:S.mid,textAlign:"right"}}>{game.dist>0?game.dist.toLocaleString():"—"}</span>
@@ -254,7 +259,7 @@ function GameDetail({game,abbr,onClose}){
         <div style={{fontFamily:S.disp,fontSize:16,fontWeight:800,color:S.text}}>{fmtDL(game.date)}</div>
         <div style={{fontFamily:S.sans,fontSize:13,color:S.mid,marginTop:4}}>
           {t&&t.name} <span style={{color:S.dim}}>{game.isHome?"vs":"at"}</span> {opp?opp.name:game.opp}
-          {game.result&&<span style={{marginLeft:10,fontWeight:700,color:game.result==="W"?"#2DBF82":"#E03A3E"}}>{game.result} {game.tScore}–{game.oScore}</span>}
+          {game.result?<span style={{marginLeft:10,fontWeight:700,color:game.result==="W"?"#2DBF82":"#E03A3E"}}>{game.result} {game.tScore}–{game.oScore}</span>:<span style={{marginLeft:10,color:S.dim,fontFamily:S.mono,fontSize:10}}>Upcoming</span>}
         </div>
       </div>
       <div style={{textAlign:"right"}}>
@@ -362,6 +367,13 @@ function App(){
   const [picking,setPicking]=useState(false),[schedules,setSchedules]=useState({});
   const [loading,setLoading]=useState(false),[loadMsg,setLoadMsg]=useState(""),[error,setError]=useState(null);
   const [checkedIds,setCheckedIds]=useState([]),[focused,setFocused]=useState(null),[search,setSearch]=useState("");
+  const [glassMode,setGlassMode]=useState(typeof window!=="undefined"?window.innerWidth<=640:false);
+
+  useEffect(()=>{
+    const onR=()=>setGlassMode(window.innerWidth<=640);
+    window.addEventListener("resize",onR);
+    return ()=>window.removeEventListener("resize",onR);
+  },[]);
 
   const load=useCallback(async abbr=>{
     if(schedules[abbr]) return;
@@ -384,17 +396,17 @@ function App(){
   const east=Object.keys(TEAMS).filter(k=>TEAMS[k].conf==="E");
   const west=Object.keys(TEAMS).filter(k=>TEAMS[k].conf==="W");
   const fil=arr=>search?arr.filter(k=>TEAMS[k].name.toLowerCase().includes(search.toLowerCase())||k.includes(search.toUpperCase())):arr;
-  const COL="18px 62px 1fr 38px 68px 44px 76px 58px";
+  const COL=glassMode?"16px 52px 1fr 30px 52px 34px 44px 38px":"18px 62px 1fr 38px 68px 44px 76px 58px";
 
   return <div style={{background:S.bg,minHeight:"100vh",color:S.text}}>
 
     {/* HEADER */}
-    <div style={{borderBottom:"1px solid "+S.border,padding:"13px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:S.bg+"ee",backdropFilter:"blur(8px)",zIndex:100}}>
+    <div style={{borderBottom:"1px solid "+S.border,padding:glassMode?"10px 12px":"13px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:S.bg+"ee",backdropFilter:"blur(8px)",zIndex:100}}>
       <div style={{display:"flex",alignItems:"center",gap:14}}>
         <button onClick={goHome} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
-          <span style={{fontFamily:S.disp,fontSize:21,fontWeight:900,color:S.accent,letterSpacing:"-0.04em"}}>AIR<span style={{color:S.text}}>BALL</span></span>
+          <span style={{fontFamily:S.disp,fontSize:glassMode?17:21,fontWeight:900,color:S.accent,letterSpacing:"-0.04em"}}>AIR<span style={{color:S.text}}>BALL</span></span>
         </button>
-        <span style={{fontFamily:S.mono,fontSize:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.18em"}}>NBA Schedule Stress</span>
+        <span style={{fontFamily:S.mono,fontSize:glassMode?8:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.14em"}}>NBA Schedule Stress</span>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
         {picking&&<span style={{fontFamily:S.mono,fontSize:11,color:"#F5B731",animation:"pulse 1.2s infinite"}}>Select team to compare →</span>}
@@ -403,7 +415,7 @@ function App(){
       </div>
     </div>
 
-    <div style={{maxWidth:1060,margin:"0 auto",padding:"24px 24px 60px"}}>
+    <div style={{maxWidth:1060,margin:"0 auto",padding:glassMode?"12px 10px 14px":"24px 24px 60px"}}>
 
       {/* TEAMS */}
       {view==="teams"&&<div>
@@ -416,8 +428,8 @@ function App(){
             style={{background:S.surface,border:"1px solid "+S.border,borderRadius:8,padding:"7px 14px",color:S.text,fontFamily:S.mono,fontSize:11,width:220,outline:"none"}}/>
         </div>
         {[{label:"Eastern Conference",teams:fil(east)},{label:"Western Conference",teams:fil(west)}].map(({label,teams})=><div key={label} style={{marginBottom:30}}>
-          <div style={{fontFamily:S.mono,fontSize:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.18em",marginBottom:10}}>{label}</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(148px,1fr))",gap:8}}>
+          <div style={{fontFamily:S.mono,fontSize:glassMode?8:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:10}}>{label}</div>
+          <div style={{display:"grid",gridTemplateColumns:glassMode?"repeat(2,minmax(0,1fr))":"repeat(auto-fill,minmax(148px,1fr))",gap:8}}>
             {teams.map(abbr=><TeamCard key={abbr} abbr={abbr} selected={abbr===team||abbr===compare} onClick={handleTeam}/>)}
           </div>
         </div>)}
@@ -471,7 +483,7 @@ function App(){
     </div>
 
     {/* LEGEND */}
-    <div style={{position:"fixed",bottom:0,left:0,right:0,borderTop:"1px solid "+S.border,background:S.bg+"f0",backdropFilter:"blur(8px)",padding:"8px 28px",display:"flex",alignItems:"center",gap:24}}>
+    <div style={{display:glassMode?"none":"flex",position:"fixed",bottom:0,left:0,right:0,borderTop:"1px solid "+S.border,background:S.bg+"f0",backdropFilter:"blur(8px)",padding:"8px 28px",alignItems:"center",gap:24}}>
       <span style={{fontFamily:S.mono,fontSize:9,color:S.dim,textTransform:"uppercase",letterSpacing:"0.1em"}}>Stress Index</span>
       {[["Low","#2DBF82","<25"],["Moderate","#F5B731","25–49"],["High","#E07530","50–69"],["Extreme","#C8102E","70+"]].map(([label,color,range])=><div key={label} style={{display:"flex",alignItems:"center",gap:5}}>
         <div style={{width:8,height:8,borderRadius:2,background:color}}/><span style={{fontFamily:S.mono,fontSize:9,color:S.mid}}>{label}</span><span style={{fontFamily:S.mono,fontSize:8,color:S.dim}}>{range}</span>
