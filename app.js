@@ -16,6 +16,17 @@ const compareColors=(a1,a2)=>{
   return [COMPARE_COLORS[i1],COMPARE_COLORS[i2]];
 };
 
+const cacheGet = key => {
+  try { return localStorage.getItem(key); }
+  catch (_) { return null; }
+};
+const cacheSet = (key, val) => {
+  try { localStorage.setItem(key,val); } catch (_) {}
+};
+const cacheRemove = key => {
+  try { localStorage.removeItem(key); } catch (_) {}
+};
+
 // ─── TEAM DATA ────────────────────────────────────────────────────────────────
 const TEAMS = {
   ATL:{name:"Atlanta Hawks",         city:"Atlanta",        lat:33.7573,lon:-84.3963,tz:-5,espnId:1, conf:"E",color:"#E03A3E",logo:"atl"},
@@ -393,15 +404,15 @@ function App(){
   const load=useCallback(async abbr=>{
     const key=abbr+"-"+season;
     if(schedules[key]) return;
-    const cached=localStorage.getItem("sched-"+key);
+    const cached=cacheGet("sched-"+key);
     if(cached){
-      try{setSchedules(p=>({...p,[key]:JSON.parse(cached)}));return;}catch(_){localStorage.removeItem("sched-"+key);}
+      try{setSchedules(p=>({...p,[key]:JSON.parse(cached)}));return;}catch(_){cacheRemove("sched-"+key);}
     }
     setLoading(true);setError(null);
     try{
       const games=await fetchSchedule(abbr,season,m=>setLoadMsg(m));
       setSchedules(p=>({...p,[key]:games}));
-      localStorage.setItem("sched-"+key,JSON.stringify(games));
+      cacheSet("sched-"+key,JSON.stringify(games));
       setLoadMsg("");
     }
     catch(e){setError(e.message);}
